@@ -8,11 +8,10 @@ import torch
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
-
 from utils.utils import test_single_volume
 from utils.dataset_ACDC import ACDCdataset, RandomGenerator
-from downloads.Gcascade import  MERIT_GCASCADE
-        
+from lib.networks import MMC_NET
+
 def inference(args, model, testloader, test_save_path=None):
     logging.info("{} test iterations per epoch".format(len(testloader)))
     model.eval()
@@ -39,8 +38,7 @@ def inference(args, model, testloader, test_save_path=None):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--encoder', default='MERIT', help='Name of encoder: PVT or MERIT')
-    parser.add_argument('--skip_aggregation', default='additive', help='Type of skip-aggregation: additive or concatenation')
+    parser.add_argument('--encoder', default='MERIT', help='Name of encoder')
     parser.add_argument("--batch_size", default=12, help="batch size")
     parser.add_argument("--lr", default=0.0001, help="learning rate")
     parser.add_argument("--max_epochs", default=400)
@@ -73,8 +71,8 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
 
     args.is_pretrain = True
-    args.exp = 'PVT_GCASCADE_MUTATION_w3_7_Run1_' + str(args.img_size)
-    snapshot_path = "{}/{}/{}".format(args.save_path, args.exp, 'PVT_GCASCADE_MUTATION_w3_7_Run1')
+    args.exp = 'MMC_NET' + str(args.img_size)
+    snapshot_path = "{}/{}/{}".format(args.save_path, args.exp, 'MMC_NET_Run1')
     snapshot_path = snapshot_path + '_pretrain' if args.is_pretrain else snapshot_path
     snapshot_path = snapshot_path + '_epo' +str(args.max_epochs) if args.max_epochs != 30 else snapshot_path
     snapshot_path = snapshot_path+'_bs'+str(args.batch_size)
@@ -82,13 +80,9 @@ if __name__ == "__main__":
     snapshot_path = snapshot_path + '_'+str(args.img_size)
     snapshot_path = snapshot_path + '_s'+str(args.seed) if args.seed!=1234 else snapshot_path
 
-    # if args.encoder=='PVT':
-    #     net = PVT_GCASCADE(n_class=args.num_classes, img_size=args.img_size, k=11, padding=5, conv='mr', gcb_act='gelu', skip_aggregation=args.skip_aggregation)
-    if args.encoder=='MERIT':
-        net = MERIT_GCASCADE(n_class=args.num_classes, img_size_s1=(args.img_size,args.img_size), img_size_s2=(224,224), k=11, padding=5, conv='mr', gcb_act='gelu', skip_aggregation=args.skip_aggregation)
-    else:
-        print('Implementation not found for this encoder. Exiting!')
-        sys.exit()
+
+    net = MMC_NET(n_class=args.num_classes, img_size_s1=(args.img_size,args.img_size), img_size_s2=(224,224),
+                k=11, padding=5, conv='mr', gcb_act='gelu')
 
     snapshot = os.path.join(snapshot_path, 'best.pth')
     if not os.path.exists(snapshot): snapshot = snapshot.replace('best', 'epoch_'+str(args.max_epochs-1))

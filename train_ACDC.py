@@ -30,13 +30,12 @@ from test_ACDC import inference
 from lib.networks import MMC_NET
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--encoder', default='MERIT', help='Name of encoder: PVT or MERIT')
-parser.add_argument('--skip_aggregation', default='additive', help='Type of skip-aggregation: additive or concatenation')                        
+parser.add_argument('--encoder', default='MERIT', help='Name of encoder')                     
 parser.add_argument("--batch_size", default=12, help="batch size")
 parser.add_argument("--lr", default=0.0001, help="learning rate")
 parser.add_argument("--max_epochs", default=400)
 parser.add_argument("--img_size", default=256)
-parser.add_argument("--save_path", default="Results/ACDC_Mamba")
+parser.add_argument("--save_path", default="Results/ACDC")
 parser.add_argument("--n_gpu", default=1)
 parser.add_argument("--checkpoint", default=None)
 parser.add_argument("--list_dir", default="dataset/ACDC/lists_ACDC")
@@ -65,8 +64,8 @@ torch.cuda.manual_seed(args.seed)
 
 
 args.is_pretrain = True
-args.exp = 'PVT_GCASCADE_MUTATION_w3_7_Run1_' + str(args.img_size)
-snapshot_path = "{}/{}/{}".format(args.save_path, args.exp, 'PVT_GCASCADE_MUTATION_w3_7_Run1')
+args.exp = 'MMC_NET' + str(args.img_size)
+snapshot_path = "{}/{}/{}".format(args.save_path, args.exp, 'MMC_NET_Run1')
 snapshot_path = snapshot_path + '_pretrain' if args.is_pretrain else snapshot_path
 snapshot_path = snapshot_path + '_epo' +str(args.max_epochs) if args.max_epochs != 30 else snapshot_path
 snapshot_path = snapshot_path+'_bs'+str(args.batch_size)
@@ -74,9 +73,7 @@ snapshot_path = snapshot_path + '_lr' + str(args.lr) if args.lr != 0.01 else sna
 snapshot_path = snapshot_path + '_'+str(args.img_size)
 snapshot_path = snapshot_path + '_s'+str(args.seed) if args.seed!=1234 else snapshot_path
 
-#current_time = time.strftime("%H%M%S")
 
-    
 if not os.path.exists(snapshot_path):
     os.makedirs(snapshot_path)
 
@@ -141,8 +138,8 @@ def val():
             val_image_batch = zoom(val_image_batch, (args.img_size / x, args.img_size / y), order=3)
         val_image_batch = torch.from_numpy(val_image_batch).unsqueeze(0).unsqueeze(0).float().cuda()
         
-
-        P = net(val_image_batch)
+        with autocast():
+            P, recon_out = net(val_image_batch)
 
         val_outputs = 0.0
         for idx in range(len(P)):
@@ -176,7 +173,7 @@ for epoch in iterator:
         
         optimizer.zero_grad()
         with autocast():
-            P = net(image_batch)
+            P, recon_out = net(image_batch)
         loss = 0.0
         lc1, lc2 = 0.3, 0.7
         for s in ss:
@@ -188,7 +185,13 @@ for epoch in iterator:
             loss_ce = ce_loss(iout, label_batch[:].long())
             loss_dice = dice_loss(iout, label_batch, softmax=True)
             loss += (lc1 * loss_ce + lc2 * loss_dice)
-
+            
+        loss_recon = nn.L1Loss()(
+            F.softmax(recon_out, dim=1), 
+            F.softmax(image_batch, dim=1)
+            ) * 1e-4
+        loss = loss + loss_recon
+        
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()

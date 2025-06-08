@@ -49,13 +49,11 @@ class MMC_NET(nn.Module):
         # backbone network initialization with pretrained weight
         self.backbone1 = maxxvit_rmlp_small_rw_256_4out()  # [64, 128, 320, 512]
         self.backbone2 = maxvit_rmlp_small_rw_224_4out()  # [64, 128, 320, 512]
-  
-        print('Loading:', './pretrained_pth/maxvit/maxxvit_rmlp_small_rw_256_sw-37e217ff.pth')
-        state_dict1 = torch.load('/media/hdd/alloy2023/Tanmoy/GCASCADE/pretrained_pth/maxvit/maxxvit_rmlp_small_rw_256_sw-37e217ff.pth')        
+        
+        state_dict1 = torch.load('pretrained_pth/maxxvit_rmlp_small_rw_256_sw-37e217ff.pth')        
         self.backbone1.load_state_dict(state_dict1, strict=False)
         
-        print('Loading:', './pretrained_pth/maxvit/maxvit_rmlp_small_rw_224_sw-6ef0ae4f.pth')       
-        state_dict2 = torch.load('/media/hdd/alloy2023/Tanmoy/GCASCADE/pretrained_pth/maxvit/maxvit_rmlp_small_rw_224_sw-6ef0ae4f.pth')        
+        state_dict2 = torch.load('pretrained_pth/maxvit_rmlp_small_rw_224_sw-6ef0ae4f.pth')        
         self.backbone2.load_state_dict(state_dict2, strict=False)
         
         
